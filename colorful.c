@@ -8,7 +8,7 @@
 
 Display *display;
 Window root;
-int *xlib_err;
+int (*xlib_err)(Display *, XErrorEvent *);
 
 CLIENT *clients;
 
@@ -34,6 +34,9 @@ int main() {
 	printf("Finding default error handler\n");
 	xlib_err = XSetErrorHandler(catch_error);
 	XSetErrorHandler(xlib_err);
+	
+	/* Register SubstructureRedirect on root */
+	check_other_wm();
 	
 	printf("Scanning for clients\n");
 	clients = NULL;
@@ -68,7 +71,7 @@ int catch_error(Display *d, XErrorEvent *e) {
 }
 
 void check_other_wm() {
-	int *old_err;
+	int (*old_err)(Display *, XErrorEvent *);
 	XSetErrorHandler(other_wm_error);
 	XSync(display, False);
 
