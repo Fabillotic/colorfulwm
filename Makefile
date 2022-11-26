@@ -1,4 +1,4 @@
-OBJ = colorful.o
+OBJ = colorful.o clients.o
 BIN = colorful
 
 all: ${BIN}
@@ -6,7 +6,10 @@ all: ${BIN}
 X11INC = /usr/X11R6/include
 X11LIB = /usr/X11R6/lib
 
-colorful.o: colorful.c colorful.h
+colorful.o: colorful.c colorful.h clients.h
+	${CC} -c -o $@ $< -I${X11INC}
+
+clients.o: clients.c colorful.h clients.h
 	${CC} -c -o $@ $< -I${X11INC}
 
 ${BIN}: ${OBJ}
