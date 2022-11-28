@@ -16,6 +16,7 @@ int (*xlib_err)(Display *, XErrorEvent *);
 int main();
 void run();
 void init_client(CLIENT *client);
+void arrange_clients(SCREEN *screen);
 void map_request(XMapRequestEvent ev);
 void create_notify(XCreateWindowEvent ev);
 void configure_request(XConfigureRequestEvent ev);
@@ -76,8 +77,57 @@ void run() {
 }
 
 void init_client(CLIENT *client) {
-	move_client(client, screens->x, screens->y);
-	resize_client(client, screens->width, screens->height);
+	SCREEN *screen;
+	
+	screen = get_screen_client(client);
+	arrange_clients(screen);
+}
+
+void arrange_clients(SCREEN *screen) {
+	CLIENT *tmp;
+	int i, c, x, y, w, h;
+	bool odd;
+	
+	if(!screen) return;
+	
+	c = 0;
+	for(tmp = clients; tmp; tmp = tmp->next) {
+		if(!tmp->override_redirect && get_screen_client(tmp) == screen) ++c;
+	}
+	
+	if(c == 0) return;
+	else if(c == 1) {
+		move_client(clients, screen->x, screen->y);
+		resize_client(clients, screen->width, screen->height);
+		return;
+	}
+	
+	odd = c % 2 == 1;
+	
+	w = screen->width / 2;
+	h = screen->height / (c / 2);
+	
+	i = 0;
+	for(tmp = clients; tmp; tmp = tmp->next) {
+		if(tmp->override_redirect || get_screen_client(tmp) != screen) continue;
+		x = screen->x + (i % 2 == 1) * w;
+		y = screen->y + (i / 2) * h;
+		
+		if(odd && tmp->next && !tmp->next->next) { /* Second to last */
+			printf("Second to last: %d\n", h / 2);
+			move_client(tmp, x, y);
+			resize_client(tmp, w, h / 2);
+		}
+		else if(odd && !tmp->next) { /* Last */
+			move_client(tmp, x + w, y - (h / 2));
+			resize_client(tmp, w, h / 2);
+		}
+		else {
+			move_client(tmp, x, y);
+			resize_client(tmp, w, h);
+		}
+		i++;
+	}
 }
 
 void map_request(XMapRequestEvent ev) {
@@ -150,22 +200,30 @@ void configure_notify(XConfigureEvent ev) {
 
 void unmap_notify(XUnmapEvent ev) {
 	CLIENT *client;
+	SCREEN *screen;
 	
 	client = get_client_by_window(ev.window);
 	if(!client) return;
 	
+	screen = get_screen_client(client);
+	
 	printf("%d: Unmapping...\n", client->window);
 	delete_client(client);
+	arrange_clients(screen);
 }
 
 void destroy_notify(XDestroyWindowEvent ev) {
 	CLIENT *client;
+	SCREEN *screen;
 	
 	client = get_client_by_window(ev.window);
 	if(!client) return;
 	
+	screen = get_screen_client(client);
+	
 	printf("%d: Destroying...\n", client->window);
 	delete_client(client);
+	arrange_clients(screen);
 }
 
 int catch_error(Display *d, XErrorEvent *e) {
