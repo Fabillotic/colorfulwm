@@ -4,6 +4,7 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/Xinerama.h>
 #include "colorful.h"
+#include "clients.h"
 #include "xinerama.h"
 
 SCREEN *screens = NULL;
@@ -55,4 +56,21 @@ void query_screens() {
 		
 		printf("Screen %d -> x: %d, y: %d, w: %d, h: %d\n", 0, screens->x, screens->y, screens->width, screens->height);
 	}
+}
+
+SCREEN *get_screen_xy(int x, int y) {
+	SCREEN *screen;
+	
+	for(screen = screens; screen; screen = screen->next) {
+		if(x >= screen->x && y >= screen->y && x <= screen->x + screen->width && y <= screen->y + screen->height) {
+			return screen;
+		}
+	}
+	
+	return NULL;
+}
+
+SCREEN *get_screen_client(CLIENT *client) {
+	if(!client) return NULL;
+	return get_screen_xy(client->x, client->y);
 }
