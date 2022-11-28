@@ -14,9 +14,11 @@ int (*xlib_err)(Display *, XErrorEvent *);
 
 int main();
 void run();
+void init_client(CLIENT *client);
 void map_request(XMapRequestEvent ev);
 void create_notify(XCreateWindowEvent ev);
 void configure_request(XConfigureRequestEvent ev);
+void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
 void destroy_notify(XDestroyWindowEvent ev);
 int catch_error(Display *d, XErrorEvent *e);
@@ -63,8 +65,14 @@ void run() {
 			else if(e.type == UnmapNotify) unmap_notify(e.xunmap);
 			else if(e.type == DestroyNotify) destroy_notify(e.xdestroywindow);
 			else if(e.type == CreateNotify) create_notify(e.xcreatewindow);
+			else if(e.type == ConfigureNotify) configure_notify(e.xconfigure);
 		}
 	}
+}
+
+void init_client(CLIENT *client) {
+	move_client(client, 0, 0);
+	resize_client(client, 500, 500);
 }
 
 void map_request(XMapRequestEvent ev) {
@@ -76,10 +84,11 @@ void map_request(XMapRequestEvent ev) {
 	}
 	else {
 		client = create_client(ev.window);
+		init_client(client);
 		printf("New client (MapRequest): %d\n", client->window);
-		XMapWindow(display, client->window);
-		XSync(display, False);
 	}
+	XMapWindow(display, client->window);
+	XSync(display, False);
 }
 
 void create_notify(XCreateWindowEvent ev) {
@@ -88,6 +97,7 @@ void create_notify(XCreateWindowEvent ev) {
 	client = get_client_by_window(ev.window);
 	if(!client) {
 		client = create_client(ev.window);
+		init_client(client);
 		printf("New client (CreateNotify): %d\n", client->window);
 		XMapWindow(display, client->window);
 		XSync(display, False);
@@ -115,6 +125,22 @@ void configure_request(XConfigureRequestEvent ev) {
 	
 	XConfigureWindow(display, client->window, ev.value_mask, &wc);
 	XSync(display, False);
+}
+
+void configure_notify(XConfigureEvent ev) {
+	CLIENT *client;
+	
+	client = get_client_by_window(ev.window);
+	if(!client) return;
+	
+	client->x = ev.x;
+	client->y = ev.y;
+	client->width = ev.width;
+	client->height = ev.height;
+	client->border_width = ev.border_width;
+	client->override_redirect = ev.override_redirect;
+	
+	printf("%d: ConfigureNotify! x: %d, y: %d, w: %d, h: %d, or: %d\n", client->window, client->x, client->y, client->width, client->height, client->override_redirect);
 }
 
 void unmap_notify(XUnmapEvent ev) {

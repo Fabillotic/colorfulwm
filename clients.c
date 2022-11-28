@@ -87,3 +87,40 @@ void update_client(CLIENT *client) {
 	client->border_width = att.border_width;
 	client->override_redirect = att.override_redirect;
 }
+
+void configure_client(CLIENT *client, unsigned int value_mask, XWindowChanges *values) {
+	if(!client->override_redirect) {
+		if(value_mask & CWX) {
+			client->x = values->x;
+		}
+		else if(value_mask & CWY) {
+			client->y = values->y;
+		}
+		else if(value_mask & CWWidth) {
+			client->width = values->width;
+		}
+		else if(value_mask & CWHeight) {
+			client->height = values->height;
+		}
+		else if(value_mask & CWBorderWidth) {
+			client->border_width = values->border_width;
+		}
+		
+		XConfigureWindow(display, client->window, value_mask, values);
+		XSync(display, False);
+	}
+}
+
+void move_client(CLIENT *client, int x, int y) {
+	XWindowChanges wc;
+	
+	wc = (XWindowChanges) {.x = x, .y = y};
+	configure_client(client, CWX | CWY, &wc);
+}
+
+void resize_client(CLIENT *client, int width, int height) {
+	XWindowChanges wc;
+	
+	wc = (XWindowChanges) {.width = width, .height = height};
+	configure_client(client, CWWidth | CWHeight, &wc);
+}
