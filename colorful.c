@@ -4,6 +4,7 @@
 #include <X11/Xlib.h>
 #include "colorful.h"
 #include "clients.h"
+#include "xinerama.h"
 
 #define MAX_ERR_LEN 200
 
@@ -42,6 +43,10 @@ int main() {
 	xlib_err = XSetErrorHandler(catch_error);
 	XSetErrorHandler(xlib_err);
 	
+	/* Find all the connected screens */
+	printf("Xinerama active: %s\n", (check_xinerama_active() ? "true" : "false"));
+	query_screens();
+	
 	/* Register SubstructureRedirect on root */
 	check_other_wm();
 	XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
@@ -71,8 +76,8 @@ void run() {
 }
 
 void init_client(CLIENT *client) {
-	move_client(client, 0, 0);
-	resize_client(client, 500, 500);
+	move_client(client, screens->x, screens->y);
+	resize_client(client, screens->width, screens->height);
 }
 
 void map_request(XMapRequestEvent ev) {

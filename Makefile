@@ -1,4 +1,4 @@
-OBJ = colorful.o clients.o
+OBJ = colorful.o clients.o xinerama.o
 BIN = colorful
 
 all: ${BIN}
@@ -12,8 +12,11 @@ colorful.o: colorful.c colorful.h clients.h
 clients.o: clients.c colorful.h clients.h
 	${CC} -c -o $@ $< -I${X11INC}
 
+xinerama.o: xinerama.c colorful.h
+	${CC} -c -o $@ $< -I${X11INC}
+
 ${BIN}: ${OBJ}
-	${CC} -o $@ ${OBJ} -L${X11LIB} -lX11
+	${CC} -o $@ ${OBJ} -L${X11LIB} -lX11 -lXinerama
 
 run: ${BIN}
 	./${BIN}
