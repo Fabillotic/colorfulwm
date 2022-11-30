@@ -16,6 +16,7 @@ int (*xlib_err)(Display *, XErrorEvent *);
 int main();
 void run();
 void init_client(CLIENT *client);
+void arrange_all_clients();
 void arrange_clients(SCREEN *screen);
 void map_request(XMapRequestEvent ev);
 void create_notify(XCreateWindowEvent ev);
@@ -56,6 +57,8 @@ int main() {
 	clients = NULL;
 	scan_clients();
 	
+	arrange_all_clients();
+	
 	run();
 	
 	return 0;
@@ -81,6 +84,14 @@ void init_client(CLIENT *client) {
 	
 	screen = get_screen_client(client);
 	arrange_clients(screen);
+}
+
+void arrange_all_clients() {
+	SCREEN *screen;
+	
+	for(screen = screens; screen; screen = screen->next) {
+		arrange_clients(screen);
+	}
 }
 
 void arrange_clients(SCREEN *screen) {
