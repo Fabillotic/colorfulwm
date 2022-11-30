@@ -69,15 +69,17 @@ void remove_client(CLIENT *client) {
 
 void delete_client(CLIENT *client) {
 	remove_client(client);
+	if(client->title) free(client->title);
 	free(client);
 }
 
 void update_client(CLIENT *client) {
-	XWindowAttributes att = (XWindowAttributes) {};
+	XWindowAttributes att;
 	
 	if(client->title) XFree(client->title);
 	XFetchName(display, client->window, &client->title);
 	
+	att = (XWindowAttributes) {};
 	XGetWindowAttributes(display, client->window, &att);
 	
 	client->x = att.x;
