@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include "colorful.h"
 #include "clients.h"
 #include "xinerama.h"
@@ -19,7 +20,6 @@ void init_client(CLIENT *client);
 void arrange_all_clients();
 void arrange_clients(SCREEN *screen);
 void map_request(XMapRequestEvent ev);
-void create_notify(XCreateWindowEvent ev);
 void configure_request(XConfigureRequestEvent ev);
 void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
@@ -73,7 +73,6 @@ void run() {
 			else if(e.type == ConfigureRequest) configure_request(e.xconfigurerequest);
 			else if(e.type == UnmapNotify) unmap_notify(e.xunmap);
 			else if(e.type == DestroyNotify) destroy_notify(e.xdestroywindow);
-			else if(e.type == CreateNotify) create_notify(e.xcreatewindow);
 			else if(e.type == ConfigureNotify) configure_notify(e.xconfigure);
 		}
 	}
@@ -143,31 +142,29 @@ void arrange_clients(SCREEN *screen) {
 
 void map_request(XMapRequestEvent ev) {
 	CLIENT *client;
+	XWMHints *hints;
 
 	client = get_client_by_window(ev.window);
 	if(client) {
 		printf("MapRequest event emitted on existing client: %d\n", client->window);
+		client->iconic = false; /* Transition from Iconic to Normal requires mapping the window */
 	}
 	else {
 		client = create_client(ev.window);
 		init_client(client);
 		printf("New client (MapRequest): %d\n", client->window);
+		
+		/* Figure out whether the window transitioned from Withdrawn to Normal or to Iconic */
+		hints = XGetWMHints(display, client->window);
+		if(hints) {
+			client->iconic = hints->initial_state == IconicState;
+			XFree(hints);
+			if(client->iconic) printf("Client was started in an iconic state!\n");
+		}
+		else client->iconic = false; /* Assume its Normal otherwise */
 	}
 	XMapWindow(display, client->window);
 	XSync(display, False);
-}
-
-void create_notify(XCreateWindowEvent ev) {
-	CLIENT *client;
-
-	client = get_client_by_window(ev.window);
-	if(!client) {
-		client = create_client(ev.window);
-		init_client(client);
-		printf("New client (CreateNotify): %d\n", client->window);
-		XMapWindow(display, client->window);
-		XSync(display, False);
-	}
 }
 
 void configure_request(XConfigureRequestEvent ev) {

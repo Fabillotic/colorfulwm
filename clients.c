@@ -46,6 +46,7 @@ CLIENT *create_client(Window window) {
 	client->window = window;
 	client->next = NULL;
 	client->title = NULL;
+	client->iconic = false;
 	
 	update_client(client);
 	add_client(client);
