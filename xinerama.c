@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/Xinerama.h>
+#include "logger.h"
 #include "colorful.h"
 #include "clients.h"
 #include "xinerama.h"
@@ -19,6 +20,7 @@ void query_screens() {
 	XineramaScreenInfo *xin_screens;
 	XWindowAttributes att = (XWindowAttributes) {};
 	
+	log_start_section("Query Screens");
 	XGetWindowAttributes(display, root, &att);
 	root_width = att.width;
 	root_height = att.height;
@@ -43,7 +45,7 @@ void query_screens() {
 			if(tmp) tmp->next = screen;
 			else screens = screen;
 			
-			printf("Screen %d -> x: %d, y: %d, w: %d, h: %d\n", i, screen->x, screen->y, screen->width, screen->height);
+			log_print(INFO, "Screen %d -> x: %d, y: %d, w: %d, h: %d\n", i, screen->x, screen->y, screen->width, screen->height);
 		}
 	}
 	else {
@@ -54,8 +56,9 @@ void query_screens() {
 		screens->width = root_width;
 		screens->height = root_height;
 		
-		printf("Screen %d -> x: %d, y: %d, w: %d, h: %d\n", 0, screens->x, screens->y, screens->width, screens->height);
+		log_print(INFO, "Screen %d -> x: %d, y: %d, w: %d, h: %d\n", 0, screens->x, screens->y, screens->width, screens->height);
 	}
+	log_end_section();
 }
 
 SCREEN *get_screen_xy(int x, int y) {

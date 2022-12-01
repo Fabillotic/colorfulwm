@@ -3,11 +3,13 @@
 #include <stdbool.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include "logger.h"
 #include "colorful.h"
 #include "clients.h"
 #include "xinerama.h"
 
 #define MAX_ERR_LEN 200
+#define return_endlog {log_end_section(); return;}
 
 Display *display;
 Window root;
@@ -30,30 +32,46 @@ int other_wm_error(Display *d, XErrorEvent *e);
 
 int main() {
 	printf("Welcome to colorfulwm!\n");
-	printf("Connecting to X11...\n");
+	/* Sorry for this huge blob haha */
+	printf("\033[38;5;196m%s\033[38;5;208m%s\033[38;5;220m%s\033[38;5;28m%s\033[38;5;21m%s\033[38;5;54m%s\033[38;5;196m%s\033[38;5;208m%s\033[0m\n",
+			"  ____   ",  " ______  ", " _       ", " ______  ", " ______  ",   " ______  ", " _    _  ", " _      ");
+	printf("\033[38;5;196m%s\033[38;5;208m%s\033[38;5;220m%s\033[38;5;28m%s\033[38;5;21m%s\033[38;5;54m%s\033[38;5;196m%s\033[38;5;208m%s\033[0m\n",
+			" /  ___\\ ", "|  __  | ", "| |      ", "|  __  | ", "|  __  | ",   "|  ____| ", "| |  | | ", "| |     ");
+	printf("\033[38;5;196m%s\033[38;5;208m%s\033[38;5;220m%s\033[38;5;28m%s\033[38;5;21m%s\033[38;5;54m%s\033[38;5;196m%s\033[38;5;208m%s\033[0m\n",
+			"|  |     ", "| |  | | ", "| |      ", "| |  | | ", "| |__| | ",   "| |____  ", "| |  | | ", "| |     ");
+	printf("\033[38;5;196m%s\033[38;5;208m%s\033[38;5;220m%s\033[38;5;28m%s\033[38;5;21m%s\033[38;5;54m%s\033[38;5;196m%s\033[38;5;208m%s\033[0m\n",
+			"|  |     ", "| |  | | ", "| |      ", "| |  | | ", "| |____| ",   "|  ____| ", "| |  | | ", "| |     ");
+	printf("\033[38;5;196m%s\033[38;5;208m%s\033[38;5;220m%s\033[38;5;28m%s\033[38;5;21m%s\033[38;5;54m%s\033[38;5;196m%s\033[38;5;208m%s\033[0m\n",
+			"|  |___  ", "| |__| | ", "| |____  ", "| |__| | ", "| | \\ \\  ", "| |      ", "| |__| | ", "| |____ ");
+	printf("\033[38;5;196m%s\033[38;5;208m%s\033[38;5;220m%s\033[38;5;28m%s\033[38;5;21m%s\033[38;5;54m%s\033[38;5;196m%s\033[38;5;208m%s\033[0m\n",
+			" \\_____/ ", "|______| ", "|______| ", "|______| ", "| |  \\_\\ ", "|_|      ", "|______| ", "|______|");
+	
+	log_init(LOG_ALL, NULL, true);
+	
+	log_print(INFO, "Connecting to X11...\n");
 	display = XOpenDisplay(NULL);
 	if(!display) {
-		printf("Connection failed!\n");
+		log_print(ERROR, "Connection failed!\n");
 		return -1;
 	}
 	
-	printf("Gettting root window\n");
+	log_print(INFO, "Gettting root window\n");
 	root = XDefaultRootWindow(display);
 	
 	/* Find default Xlib error handler */
-	printf("Finding default error handler\n");
+	log_print(INFO, "Finding default error handler\n");
 	xlib_err = XSetErrorHandler(catch_error);
 	XSetErrorHandler(xlib_err);
 	
 	/* Find all the connected screens */
-	printf("Xinerama active: %s\n", (check_xinerama_active() ? "true" : "false"));
+	log_print(INFO, "Xinerama active: %s\n", (check_xinerama_active() ? "true" : "false"));
 	query_screens();
 	
 	/* Register SubstructureRedirect on root */
 	check_other_wm();
 	XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
 	
-	printf("Scanning for clients\n");
+	log_print(INFO, "Scanning for clients\n");
 	clients = NULL;
 	scan_clients();
 	
@@ -124,7 +142,6 @@ void arrange_clients(SCREEN *screen) {
 		y = screen->y + (i / 2) * h;
 		
 		if(odd && tmp->next && !tmp->next->next) { /* Second to last */
-			printf("Second to last: %d\n", h / 2);
 			move_client(tmp, x, y);
 			resize_client(tmp, w, h / 2);
 		}
@@ -143,38 +160,41 @@ void arrange_clients(SCREEN *screen) {
 void map_request(XMapRequestEvent ev) {
 	CLIENT *client;
 	XWMHints *hints;
-
+	
+	log_start_section("MapRequest");
 	client = get_client_by_window(ev.window);
 	if(client) {
-		printf("MapRequest event emitted on existing client: %d\n", client->window);
+		log_print(INFO, "MapRequest event emitted on existing client: %d\n", client->window);
 		client->iconic = false; /* Transition from Iconic to Normal requires mapping the window */
 	}
 	else {
 		client = create_client(ev.window);
 		init_client(client);
-		printf("New client (MapRequest): %d\n", client->window);
+		log_print(INFO, "New client (MapRequest): %d\n", client->window);
 		
 		/* Figure out whether the window transitioned from Withdrawn to Normal or to Iconic */
 		hints = XGetWMHints(display, client->window);
 		if(hints) {
 			client->iconic = hints->initial_state == IconicState;
 			XFree(hints);
-			if(client->iconic) printf("Client was started in an iconic state!\n");
+			if(client->iconic) log_print(INFO, "Client was started in an iconic state!\n");
 		}
 		else client->iconic = false; /* Assume its Normal otherwise */
 	}
 	XMapWindow(display, client->window);
 	XSync(display, False);
+	log_end_section();
 }
 
 void configure_request(XConfigureRequestEvent ev) {
 	CLIENT *client;
 	XWindowChanges wc;
 	
+	log_start_section("ConfigureRequest");
 	client = get_client_by_window(ev.window);
-	if(!client) return;
+	if(!client) return_endlog;
 	
-	printf("%d: ConfigureRequest!\n");
+	log_print(INFO, "%d: ConfigureRequest!\n");
 	
 	wc = (XWindowChanges){};
 	
@@ -188,13 +208,15 @@ void configure_request(XConfigureRequestEvent ev) {
 	
 	XConfigureWindow(display, client->window, ev.value_mask, &wc);
 	XSync(display, False);
+	log_end_section();
 }
 
 void configure_notify(XConfigureEvent ev) {
 	CLIENT *client;
 	
+	log_start_section("ConfigureNotify");
 	client = get_client_by_window(ev.window);
-	if(!client) return;
+	if(!client) return_endlog;
 	
 	client->x = ev.x;
 	client->y = ev.y;
@@ -203,41 +225,46 @@ void configure_notify(XConfigureEvent ev) {
 	client->border_width = ev.border_width;
 	client->override_redirect = ev.override_redirect;
 	
-	printf("%d: ConfigureNotify! x: %d, y: %d, w: %d, h: %d, or: %d\n", client->window, client->x, client->y, client->width, client->height, client->override_redirect);
+	log_print(INFO, "%d: ConfigureNotify! x: %d, y: %d, w: %d, h: %d, or: %d\n", client->window, client->x, client->y, client->width, client->height, client->override_redirect);
+	log_end_section();
 }
 
 void unmap_notify(XUnmapEvent ev) {
 	CLIENT *client;
 	SCREEN *screen;
 	
+	log_start_section("UnmapNotify");
 	client = get_client_by_window(ev.window);
-	if(!client) return;
+	if(!client) return_endlog;
 	
 	screen = get_screen_client(client);
 	
-	printf("%d: Unmapping...\n", client->window);
+	log_print(INFO, "%d: Unmapping...\n", client->window);
 	delete_client(client);
 	arrange_clients(screen);
+	log_end_section();
 }
 
 void destroy_notify(XDestroyWindowEvent ev) {
 	CLIENT *client;
 	SCREEN *screen;
 	
+	log_start_section("DestroyNotify");
 	client = get_client_by_window(ev.window);
-	if(!client) return;
+	if(!client) return_endlog;
 	
 	screen = get_screen_client(client);
 	
-	printf("%d: Destroying...\n", client->window);
+	log_print(INFO, "%d: Destroying...\n", client->window);
 	delete_client(client);
 	arrange_clients(screen);
+	log_end_section();
 }
 
 int catch_error(Display *d, XErrorEvent *e) {
 	char err_text[MAX_ERR_LEN];
 	XGetErrorText(d, e->error_code, err_text, MAX_ERR_LEN);
-	printf("XLIB ERROR: %s\n", err_text);
+	log_print(ERROR, "XLIB ERROR: %s\n", err_text);
 }
 
 void check_other_wm() {
@@ -253,6 +280,6 @@ void check_other_wm() {
 }
 
 int other_wm_error(Display *d, XErrorEvent *e) {
-	printf("Another window manager is already running!\n");
+	log_print(ERROR, "Another window manager is already running!\n");
 	exit(-1);
 }

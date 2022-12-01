@@ -1,4 +1,4 @@
-OBJ = colorful.o clients.o xinerama.o
+OBJ = colorful.o clients.o xinerama.o logger.o
 BIN = colorful
 
 all: ${BIN}
@@ -6,13 +6,16 @@ all: ${BIN}
 X11INC = /usr/X11R6/include
 X11LIB = /usr/X11R6/lib
 
-colorful.o: colorful.c colorful.h clients.h
+colorful.o: colorful.c colorful.h clients.h logger.h
 	${CC} -c -o $@ $< -I${X11INC}
 
-clients.o: clients.c colorful.h clients.h
+clients.o: clients.c colorful.h clients.h logger.h
 	${CC} -c -o $@ $< -I${X11INC}
 
-xinerama.o: xinerama.c colorful.h
+xinerama.o: xinerama.c colorful.h logger.h
+	${CC} -c -o $@ $< -I${X11INC}
+
+logger.o: logger.c logger.h
 	${CC} -c -o $@ $< -I${X11INC}
 
 ${BIN}: ${OBJ}
