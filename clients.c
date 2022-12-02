@@ -115,6 +115,7 @@ void configure_client(CLIENT *client, unsigned int value_mask, XWindowChanges *v
 		XConfigureWindow(display, client->window, value_mask, values);
 		XSync(display, False);
 	}
+	else log_print(WARN, "An attempt was made to configure an override redirect window!\n");
 }
 
 void move_client(CLIENT *client, int x, int y) {

@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/cursorfont.h>
 #include "logger.h"
 #include "colorful.h"
 #include "clients.h"
@@ -26,6 +27,7 @@ void configure_request(XConfigureRequestEvent ev);
 void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
 void destroy_notify(XDestroyWindowEvent ev);
+void button_pressed(XButtonEvent ev);
 int catch_error(Display *d, XErrorEvent *e);
 void check_other_wm();
 int other_wm_error(Display *d, XErrorEvent *e);
@@ -77,6 +79,9 @@ int main() {
 	
 	arrange_all_clients();
 	
+	XSetInputFocus(display, None, RevertToNone, CurrentTime);
+	XDefineCursor(display, root, XCreateFontCursor(display, XC_arrow));
+	
 	run();
 	
 	return 0;
@@ -92,6 +97,7 @@ void run() {
 			else if(e.type == UnmapNotify) unmap_notify(e.xunmap);
 			else if(e.type == DestroyNotify) destroy_notify(e.xdestroywindow);
 			else if(e.type == ConfigureNotify) configure_notify(e.xconfigure);
+			else if(e.type == ButtonPress) button_pressed(e.xbutton);
 		}
 	}
 }
@@ -101,6 +107,9 @@ void init_client(CLIENT *client) {
 	
 	screen = get_screen_client(client);
 	arrange_clients(screen);
+	
+	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask);
+	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 }
 
 void arrange_all_clients() {
@@ -259,6 +268,17 @@ void destroy_notify(XDestroyWindowEvent ev) {
 	delete_client(client);
 	arrange_clients(screen);
 	log_end_section();
+}
+
+void button_pressed(XButtonEvent ev) {
+	CLIENT *client;
+	
+	XAllowEvents(display, ReplayPointer, CurrentTime);
+	
+	client = get_client_by_window(ev.window);
+	if(!client) return;
+	
+	XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
 }
 
 int catch_error(Display *d, XErrorEvent *e) {
