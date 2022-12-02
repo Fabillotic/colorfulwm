@@ -16,6 +16,9 @@ Display *display;
 Window root;
 int (*xlib_err)(Display *, XErrorEvent *);
 
+enum focus_types{FocusClick, FocusEnter};
+int focus_type = FocusClick;
+
 
 int main();
 void run();
@@ -29,6 +32,7 @@ void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
 void destroy_notify(XDestroyWindowEvent ev);
 void button_pressed(XButtonEvent ev);
+void enter_window(XCrossingEvent ev);
 int catch_error(Display *d, XErrorEvent *e);
 void check_other_wm();
 int other_wm_error(Display *d, XErrorEvent *e);
@@ -99,6 +103,7 @@ void run() {
 			else if(e.type == DestroyNotify) destroy_notify(e.xdestroywindow);
 			else if(e.type == ConfigureNotify) configure_notify(e.xconfigure);
 			else if(e.type == ButtonPress) button_pressed(e.xbutton);
+			else if(e.type == EnterNotify) enter_window(e.xcrossing);
 		}
 	}
 }
@@ -109,7 +114,7 @@ void init_client(CLIENT *client) {
 	screen = get_screen_client(client);
 	arrange_clients(screen);
 	
-	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask);
+	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask | EnterWindowMask);
 	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 }
 
@@ -219,7 +224,7 @@ void map_request(XMapRequestEvent ev) {
 	XMapWindow(display, client->window);
 	XSync(display, False);
 	
-	XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+	if(focus_type == FocusClick) XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
 	log_end_section();
 }
 
@@ -280,7 +285,7 @@ void unmap_notify(XUnmapEvent ev) {
 	delete_client(client);
 	arrange_clients(screen);
 	
-	if(clients) XSetInputFocus(display, clients->window, RevertToNone, CurrentTime);
+	if(clients && focus_type == FocusClick) XSetInputFocus(display, clients->window, RevertToNone, CurrentTime);
 	
 	log_end_section();
 }
@@ -310,6 +315,15 @@ void button_pressed(XButtonEvent ev) {
 	if(!client) return;
 	
 	XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+}
+
+void enter_window(XCrossingEvent ev) {
+	CLIENT *client;
+	
+	client = get_client_by_window(ev.window);
+	if(!client) return;
+	
+	if(focus_type == FocusEnter) XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
 }
 
 int catch_error(Display *d, XErrorEvent *e) {
