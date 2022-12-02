@@ -1,0 +1,1 @@
+# colorfulwm
