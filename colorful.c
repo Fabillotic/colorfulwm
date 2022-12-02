@@ -20,6 +20,7 @@ int (*xlib_err)(Display *, XErrorEvent *);
 int main();
 void run();
 void init_client(CLIENT *client);
+void scan_clients();
 void arrange_all_clients();
 void arrange_clients(SCREEN *screen);
 void map_request(XMapRequestEvent ev);
@@ -112,6 +113,31 @@ void init_client(CLIENT *client) {
 	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 }
 
+void scan_clients() {
+	CLIENT *client;
+	Window *children;
+	XWindowAttributes att = (XWindowAttributes) {};
+	Window r_root;
+	Window r_parent;
+	int n_children;
+	int i;
+	char *name;
+	
+	log_start_section("Scan Clients");
+	XQueryTree(display, root, &r_root, &r_parent, &children, &n_children);
+	for(i = 0; i < n_children; i++) {
+		XGetWindowAttributes(display, children[i], &att);
+		
+		if(att.map_state == IsViewable) {
+			client = create_client(children[i]);
+			init_client(client);
+			
+			log_print(INFO, "Found client! id: %d, title: '%s', x: %d, y: %d, w: %d, h: %d, bw: %d, or: %d\n", client->window, client->title, client->x, client->y, client->width, client->height, client->border_width, client->override_redirect);
+		}
+	}
+	log_end_section();
+}
+
 void arrange_all_clients() {
 	SCREEN *screen;
 	
@@ -192,6 +218,8 @@ void map_request(XMapRequestEvent ev) {
 	}
 	XMapWindow(display, client->window);
 	XSync(display, False);
+	
+	XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
 	log_end_section();
 }
 
@@ -251,6 +279,9 @@ void unmap_notify(XUnmapEvent ev) {
 	log_print(INFO, "%d: Unmapping...\n", client->window);
 	delete_client(client);
 	arrange_clients(screen);
+	
+	if(clients) XSetInputFocus(display, clients->window, RevertToNone, CurrentTime);
+	
 	log_end_section();
 }
 

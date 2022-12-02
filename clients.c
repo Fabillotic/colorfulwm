@@ -8,25 +8,6 @@
 
 CLIENT *clients;
 
-void scan_clients() {
-	CLIENT *client;
-	Window *children;
-	Window r_root;
-	Window r_parent;
-	int n_children;
-	int i;
-	char *name;
-	
-	log_start_section("Scan Clients");
-	XQueryTree(display, root, &r_root, &r_parent, &children, &n_children);
-	for(i = 0; i < n_children; i++) {
-		client = create_client(children[i]);
-		
-		log_print(INFO, "Found client! id: %d, title: '%s', x: %d, y: %d, w: %d, h: %d, bw: %d, or: %d\n", client->window, client->title, client->x, client->y, client->width, client->height, client->border_width, client->override_redirect);
-	}
-	log_end_section();
-}
-
 CLIENT *get_client_by_window(Window window) {
 	CLIENT *r;
 	
