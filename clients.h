@@ -10,6 +10,7 @@ struct client {
 	int border_width;
 	bool override_redirect;
 	bool iconic;
+	bool floating;
 };
 
 extern CLIENT *clients;

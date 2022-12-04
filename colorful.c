@@ -32,6 +32,9 @@ void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
 void destroy_notify(XDestroyWindowEvent ev);
 void button_pressed(XButtonEvent ev);
+void button_released(XButtonEvent ev);
+void key_pressed(XKeyEvent ev);
+void key_released(XKeyEvent ev);
 void enter_window(XCrossingEvent ev);
 int catch_error(Display *d, XErrorEvent *e);
 void check_other_wm();
@@ -103,7 +106,10 @@ void run() {
 			else if(e.type == DestroyNotify) destroy_notify(e.xdestroywindow);
 			else if(e.type == ConfigureNotify) configure_notify(e.xconfigure);
 			else if(e.type == ButtonPress) button_pressed(e.xbutton);
+			else if(e.type == ButtonRelease) button_released(e.xbutton);
 			else if(e.type == EnterNotify) enter_window(e.xcrossing);
+			else if(e.type == KeyPress) key_pressed(e.xkey);
+			else if(e.type == KeyRelease) key_released(e.xkey);
 		}
 	}
 }
@@ -116,6 +122,9 @@ void init_client(CLIENT *client) {
 	
 	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask | EnterWindowMask);
 	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+	XGrabButton(display, Button1, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
+	XGrabButton(display, Button3, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
+	XGrabKey(display, XKeysymToKeycode(display, XK_f), Mod1Mask, client->window, False, None, None);
 }
 
 void scan_clients() {
@@ -160,7 +169,7 @@ void arrange_clients(SCREEN *screen) {
 	
 	c = 0;
 	for(tmp = clients; tmp; tmp = tmp->next) {
-		if(!tmp->override_redirect && get_screen_client(tmp) == screen) ++c;
+		if(!tmp->override_redirect && !tmp->floating && get_screen_client(tmp) == screen) ++c;
 	}
 	
 	if(c == 0) return;
@@ -177,7 +186,7 @@ void arrange_clients(SCREEN *screen) {
 	
 	i = 0;
 	for(tmp = clients; tmp; tmp = tmp->next) {
-		if(tmp->override_redirect || get_screen_client(tmp) != screen) continue;
+		if(tmp->override_redirect || tmp->floating || get_screen_client(tmp) != screen) continue;
 		x = screen->x + (i % 2 == 1) * w;
 		y = screen->y + (i / 2) * h;
 		
@@ -308,13 +317,101 @@ void destroy_notify(XDestroyWindowEvent ev) {
 
 void button_pressed(XButtonEvent ev) {
 	CLIENT *client;
-	
-	XAllowEvents(display, ReplayPointer, CurrentTime);
+	XEvent event;
+	int x, y, w, h;
 	
 	client = get_client_by_window(ev.window);
-	if(!client) return;
+	if(!client) {
+		XAllowEvents(display, ReplayPointer, CurrentTime);
+		return;
+	}
 	
 	XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+	XRaiseWindow(display, client->window);
+	
+	if(client->floating && (ev.state & Mod1Mask) && ev.button == Button1) {
+		XAllowEvents(display, SyncPointer, CurrentTime);
+		
+		x = client->x - ev.x_root;
+		y = client->y - ev.y_root;
+		
+		XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_fleur), CurrentTime);
+		while(true) {
+			XAllowEvents(display, SyncPointer, CurrentTime);
+			XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
+			if(event.type == MotionNotify) {
+				move_client(client, x + event.xmotion.x_root, y + event.xmotion.y_root);
+			}
+			else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button1)) {
+				break;
+			}
+		}
+		XUngrabPointer(display, CurrentTime);
+	}
+	else if(client->floating && (ev.state & Mod1Mask) && ev.button == Button3) {
+		XAllowEvents(display, SyncPointer, CurrentTime);
+		
+		x = ev.x_root;
+		y = ev.y_root;
+		w = client->width;
+		h = client->height;
+		
+		XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_sizing), CurrentTime);
+		while(true) {
+			XAllowEvents(display, SyncPointer, CurrentTime);
+			XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
+			if(event.type == MotionNotify) {
+				resize_client(client, w + event.xmotion.x_root - x, h + event.xmotion.y_root - y);
+			}
+			else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button3)) {
+				break;
+			}
+		}
+		XUngrabPointer(display, CurrentTime);
+	}
+	else XAllowEvents(display, ReplayPointer, CurrentTime);
+}
+
+void button_released(XButtonEvent ev) {
+	CLIENT *client;
+	
+	client = get_client_by_window(ev.window);
+	if(!client) {
+		XAllowEvents(display, ReplayPointer, CurrentTime);
+		return;
+	}
+	
+	XAllowEvents(display, ReplayPointer, CurrentTime);
+}
+
+void key_pressed(XKeyEvent ev) {
+	CLIENT *client;
+	
+	client = get_client_by_window(ev.window);
+	if(!client) {
+		XAllowEvents(display, ReplayKeyboard, CurrentTime);
+	}
+	
+	if((ev.state & Mod1Mask) && ev.keycode == XKeysymToKeycode(display, XK_f)) {
+		XAllowEvents(display, SyncKeyboard, CurrentTime);
+		client->floating = !client->floating;
+		XRaiseWindow(display, client->window);
+		arrange_all_clients();
+	}
+	else {
+		XAllowEvents(display, ReplayKeyboard, CurrentTime);
+	}
+}
+
+void key_released(XKeyEvent ev) {
+	CLIENT *client;
+	
+	client = get_client_by_window(ev.window);
+	if(!client) {
+		XAllowEvents(display, ReplayKeyboard, CurrentTime);
+	}
+	
+	XAllowEvents(display, ReplayKeyboard, CurrentTime);
 }
 
 void enter_window(XCrossingEvent ev) {
