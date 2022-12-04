@@ -2,6 +2,7 @@ typedef struct client CLIENT;
 struct client {
 	CLIENT *next;
 	Window window;
+	Window sub;
 	char *title;
 	int x;
 	int y;
@@ -24,3 +25,5 @@ void update_client(CLIENT *client);
 void configure_client(CLIENT *client, unsigned int value_mask, XWindowChanges *values);
 void move_client(CLIENT *client, int x, int y);
 void resize_client(CLIENT *client, int width, int height);
+void frame_client(CLIENT *client);
+void unframe_client(CLIENT *client);

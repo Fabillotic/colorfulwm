@@ -6,6 +6,9 @@
 #include "colorful.h"
 #include "clients.h"
 
+/* Implemented through colorful.c, necessary for mapping the frame clients */
+void map_request(XMapRequestEvent ev);
+
 CLIENT *clients;
 
 CLIENT *get_client_by_window(Window window) {
@@ -28,6 +31,7 @@ void add_client(CLIENT *client) {
 CLIENT *create_client(Window window) {
 	CLIENT *client = malloc(sizeof(CLIENT));
 	client->window = window;
+	client->sub = None;
 	client->next = NULL;
 	client->title = NULL;
 	client->iconic = false;
@@ -77,6 +81,8 @@ void update_client(CLIENT *client) {
 }
 
 void configure_client(CLIENT *client, unsigned int value_mask, XWindowChanges *values) {
+	XWindowChanges sub_values;
+	
 	if(!client->override_redirect) {
 		if(value_mask & CWX) {
 			client->x = values->x;
@@ -96,6 +102,12 @@ void configure_client(CLIENT *client, unsigned int value_mask, XWindowChanges *v
 		
 		XConfigureWindow(display, client->window, value_mask, values);
 		XSync(display, False);
+		
+		if(client->sub != None && value_mask & (CWWidth | CWHeight)) {
+			sub_values = (XWindowChanges) {.width = values->width - 20, .height = values->height - 20};
+			XConfigureWindow(display, client->sub, value_mask & (CWWidth | CWHeight), &sub_values);
+			XSync(display, False);
+		}
 	}
 	else log_print(WARN, "An attempt was made to configure an override redirect window!\n");
 }
@@ -112,4 +124,47 @@ void resize_client(CLIENT *client, int width, int height) {
 	
 	wc = (XWindowChanges) {.width = width, .height = height};
 	configure_client(client, CWWidth | CWHeight, &wc);
+}
+
+void frame_client(CLIENT *client) {
+	CLIENT *nclient;
+	Window window, nwindow;
+	XMapRequestEvent map_event;
+	XUnmapEvent unmap_event;
+	bool floating;
+	int x, y, w, h;
+	
+	floating = client->floating;
+	x = client->x;
+	y = client->y;
+	w = client->width;
+	h = client->height;
+	window = client->window;
+	
+	nwindow = XCreateSimpleWindow(display, root, x, y, w + 20, h + 20, client->border_width, 0, 0);
+	
+	XReparentWindow(display, client->window, nwindow, 10, 10);
+	XSync(display, False);
+	
+	map_event = (XMapRequestEvent) {.type = MapRequest, .serial = 0, .send_event = False, .display = display, .parent = root, .window = nwindow};
+	map_request(map_event);
+	
+	nclient = get_client_by_window(nwindow);
+	nclient->floating = floating;
+	nclient->sub = window;
+	
+	move_client(nclient, x, y);
+	resize_client(nclient, w, h);
+}
+
+void unframe_client(CLIENT *client) {
+	log_print(DEBUG, "Unframing client!\n");
+	if(client->sub != None) {
+		XReparentWindow(display, client->sub, root, client->x, client->y);
+		XMapWindow(display, client->sub);
+		XDestroyWindow(display, client->window);
+		
+		client->window = client->sub;
+		client->sub = None;
+	}
 }

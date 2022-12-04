@@ -121,6 +121,7 @@ void init_client(CLIENT *client) {
 	arrange_clients(screen);
 	
 	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask | EnterWindowMask);
+	if(client->sub != None) XSelectInput(display, client->sub, StructureNotifyMask);
 	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 	XGrabButton(display, Button1, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
 	XGrabButton(display, Button3, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
@@ -263,11 +264,23 @@ void configure_request(XConfigureRequestEvent ev) {
 }
 
 void configure_notify(XConfigureEvent ev) {
-	CLIENT *client;
+	CLIENT *client, *sclient;
 	
 	log_start_section("ConfigureNotify");
 	client = get_client_by_window(ev.window);
-	if(!client) return_endlog;
+	if(!client) {
+		for(sclient = clients; sclient; sclient = sclient->next) {
+			if(sclient->sub == ev.window) {
+				log_print(INFO, "Sub-Window was configured!\n");
+				break;
+			}
+		}
+		if(sclient) {
+			sclient->width = ev.width + 20;
+			sclient->height = ev.height + 20;
+		}
+		return_endlog;
+	}
 	
 	client->x = ev.x;
 	client->y = ev.y;
@@ -281,12 +294,21 @@ void configure_notify(XConfigureEvent ev) {
 }
 
 void unmap_notify(XUnmapEvent ev) {
-	CLIENT *client;
+	CLIENT *client, *sclient;
 	SCREEN *screen;
 	
 	log_start_section("UnmapNotify");
 	client = get_client_by_window(ev.window);
-	if(!client) return_endlog;
+	if(!client) {
+		for(sclient = clients; sclient; sclient = sclient->next) {
+			if(sclient->sub == ev.window) {
+				log_print(INFO, "Sub-Window was unmapped!\n");
+				break;
+			}
+		}
+		if(!sclient) return_endlog;
+		client = sclient;
+	}
 	
 	screen = get_screen_client(client);
 	
@@ -396,6 +418,13 @@ void key_pressed(XKeyEvent ev) {
 		XAllowEvents(display, SyncKeyboard, CurrentTime);
 		client->floating = !client->floating;
 		XRaiseWindow(display, client->window);
+		
+		if(client->floating) {
+			frame_client(client);
+		}
+		else {
+			unframe_client(client);
+		}
 		arrange_all_clients();
 	}
 	else {
