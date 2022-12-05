@@ -164,6 +164,7 @@ void unframe_client(CLIENT *client) {
 		XReparentWindow(display, client->sub, root, client->x, client->y);
 		XMapWindow(display, client->sub);
 		XDestroyWindow(display, client->window);
+		XSync(display, False);
 		
 		client->window = client->sub;
 		client->sub = None;

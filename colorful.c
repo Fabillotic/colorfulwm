@@ -323,7 +323,13 @@ void unmap_notify(XUnmapEvent ev) {
 			}
 		}
 		if(!sclient) return_endlog;
-		client = sclient;
+		
+		XDestroyWindow(display, sclient->window);
+		XSync(display, False);
+		
+		delete_client(sclient);
+		arrange_all_clients();
+		return_endlog;
 	}
 	
 	screen = get_screen_client(client);
