@@ -15,6 +15,7 @@ struct client {
 };
 
 extern CLIENT *clients;
+extern CLIENT *active;
 
 CLIENT *get_client_by_window(Window window);
 void add_client(CLIENT *client);
@@ -27,3 +28,4 @@ void move_client(CLIENT *client, int x, int y);
 void resize_client(CLIENT *client, int width, int height);
 void frame_client(CLIENT *client);
 void unframe_client(CLIENT *client);
+void focus_client(CLIENT *client, bool raise_window);

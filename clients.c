@@ -10,6 +10,7 @@
 void map_request(XMapRequestEvent ev);
 
 CLIENT *clients;
+CLIENT *active;
 
 CLIENT *get_client_by_window(Window window) {
 	CLIENT *r;
@@ -167,4 +168,18 @@ void unframe_client(CLIENT *client) {
 		client->window = client->sub;
 		client->sub = None;
 	}
+}
+
+void focus_client(CLIENT *client, bool raise_window) {
+	active = client;
+	
+	if(!client) {
+		XSetInputFocus(display, None, RevertToNone, CurrentTime);
+		return;
+	}
+	
+	if(client->sub) XSetInputFocus(display, client->sub, RevertToNone, CurrentTime);
+	else XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+	
+	if(raise_window) XRaiseWindow(display, client->window);
 }

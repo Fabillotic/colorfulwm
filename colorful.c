@@ -87,7 +87,7 @@ int main() {
 	
 	arrange_all_clients();
 	
-	XSetInputFocus(display, None, RevertToNone, CurrentTime);
+	focus_client(NULL, false);
 	XDefineCursor(display, root, XCreateFontCursor(display, XC_arrow));
 	
 	run();
@@ -238,7 +238,7 @@ void map_request(XMapRequestEvent ev) {
 	XMapWindow(display, client->window);
 	XSync(display, False);
 	
-	if(focus_type == FocusClick) XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+	if(focus_type == FocusClick) focus_client(client, false);
 	log_end_section();
 }
 
@@ -320,7 +320,7 @@ void unmap_notify(XUnmapEvent ev) {
 	delete_client(client);
 	arrange_clients(screen);
 	
-	if(clients && focus_type == FocusClick) XSetInputFocus(display, clients->window, RevertToNone, CurrentTime);
+	if(clients && focus_type == FocusClick) focus_client(clients, false);
 	
 	log_end_section();
 }
@@ -352,8 +352,7 @@ void button_pressed(XButtonEvent ev) {
 		return;
 	}
 	
-	XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
-	XRaiseWindow(display, client->window);
+	focus_client(client, true);
 	
 	if(client->floating && (ev.state & Mod1Mask) && ev.button == Button1) {
 		XAllowEvents(display, SyncPointer, CurrentTime);
@@ -453,7 +452,7 @@ void enter_window(XCrossingEvent ev) {
 	client = get_client_by_window(ev.window);
 	if(!client) return;
 	
-	if(focus_type == FocusEnter) XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+	if(focus_type == FocusEnter) focus_client(client, false);
 }
 
 int catch_error(Display *d, XErrorEvent *e) {
