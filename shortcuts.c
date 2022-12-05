@@ -14,6 +14,7 @@ void init_shortcuts() {
 	create_button_shortcut(Button1, Mod1Mask, shortcut_move_client);
 	create_button_shortcut(Button3, Mod1Mask, shortcut_resize_client);
 	create_keyboard_shortcut(XKeysymToKeycode(display, XK_f), Mod1Mask, shortcut_toggle_floating);
+	create_keyboard_shortcut(XKeysymToKeycode(display, XK_d), Mod1Mask, shortcut_spawn_dmenu);
 }
 
 void create_shortcut(bool is_button, unsigned int detail, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {

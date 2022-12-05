@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include "logger.h"
 #include "clients.h"
 #include "colorful.h"
@@ -66,6 +67,8 @@ void delete_client(CLIENT *client) {
 
 void update_client(CLIENT *client) {
 	XWindowAttributes att;
+	XSizeHints hints;
+	long supplied;
 	
 	if(client->title) XFree(client->title);
 	XFetchName(display, client->window, &client->title);
@@ -79,6 +82,45 @@ void update_client(CLIENT *client) {
 	client->height = att.height;
 	client->border_width = att.border_width;
 	client->override_redirect = att.override_redirect;
+	
+	client->min_width = 0;
+	client->min_height = 0;
+	client->base_width = 0;
+	client->base_height = 0;
+	client->max_width = -1;
+	client->max_height = -1;
+	client->inc_width = 1;
+	client->inc_height = 1;
+	
+	if(client->sub) XGetWMNormalHints(display, client->sub, &hints, &supplied);
+	else XGetWMNormalHints(display, client->window, &hints, &supplied);
+	if(supplied & PMinSize) {
+		client->min_width = hints.min_width;
+		client->min_height = hints.min_height;
+	}
+	if(supplied & PMaxSize) {
+		client->max_width = hints.max_width;
+		client->max_height = hints.max_height;
+	}
+	if(supplied & PResizeInc) {
+		client->inc_width = hints.width_inc;
+		client->inc_height = hints.height_inc;
+	}
+	if(supplied & PBaseSize) {
+		client->base_width = hints.base_width;
+		client->base_height = hints.base_height;
+	}
+	
+	if((supplied & PMinSize) && !(supplied & PBaseSize)) {
+		client->base_width = client->min_width;
+		client->base_height = client->min_height;
+	}
+	else if(!(supplied & PMinSize) && (supplied & PBaseSize)) {
+		client->min_width = client->base_width;
+		client->min_height = client->base_height;
+	}
+	
+	log_print(DEBUG, "inc_width: %d, inc_height: %d\n", client->inc_width, client->inc_height);
 }
 
 void configure_client(CLIENT *client, unsigned int value_mask, XWindowChanges *values) {
@@ -156,6 +198,8 @@ void frame_client(CLIENT *client) {
 	
 	move_client(nclient, x, y);
 	resize_client(nclient, w, h);
+	
+	update_client(nclient);
 }
 
 void unframe_client(CLIENT *client) {

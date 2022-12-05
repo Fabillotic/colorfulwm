@@ -3,11 +3,22 @@ struct client {
 	CLIENT *next;
 	Window window;
 	Window sub;
+	
 	char *title;
 	int x;
 	int y;
 	int width;
 	int height;
+	
+	int min_width;
+	int min_height;
+	int base_width;
+	int base_height;
+	int max_width;
+	int max_height;
+	int inc_width;
+	int inc_height;
+	
 	int border_width;
 	bool override_redirect;
 	bool iconic;

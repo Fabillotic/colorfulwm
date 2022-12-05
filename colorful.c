@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
@@ -33,6 +34,7 @@ void destroy_notify(XDestroyWindowEvent ev);
 void button_pressed(XButtonEvent ev);
 void button_released(XButtonEvent ev);
 void key_pressed(XKeyEvent ev);
+void spawn(char** cmd);
 void key_released(XKeyEvent ev);
 void enter_window(XCrossingEvent ev);
 int catch_error(Display *d, XErrorEvent *e);
@@ -126,9 +128,6 @@ void init_client(CLIENT *client) {
 	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask | EnterWindowMask);
 	if(client->sub != None) XSelectInput(display, client->sub, StructureNotifyMask);
 	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-	//XGrabButton(display, Button1, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
-	//XGrabButton(display, Button3, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
-	//XGrabKey(display, XKeysymToKeycode(display, XK_f), Mod1Mask, client->window, False, None, None);
 	
 	for(sc = shortcuts; sc; sc = sc->next) {
 		if(sc->is_button) {
@@ -282,12 +281,10 @@ void configure_request(XConfigureRequestEvent ev) {
 void configure_notify(XConfigureEvent ev) {
 	CLIENT *client, *sclient;
 	
-	log_start_section("ConfigureNotify");
 	client = get_client_by_window(ev.window);
 	if(!client) {
 		for(sclient = clients; sclient; sclient = sclient->next) {
 			if(sclient->sub == ev.window) {
-				log_print(INFO, "Sub-Window was configured!\n");
 				break;
 			}
 		}
@@ -304,9 +301,6 @@ void configure_notify(XConfigureEvent ev) {
 	client->height = ev.height;
 	client->border_width = ev.border_width;
 	client->override_redirect = ev.override_redirect;
-	
-	log_print(INFO, "%d: ConfigureNotify! x: %d, y: %d, w: %d, h: %d, or: %d\n", client->window, client->x, client->y, client->width, client->height, client->override_redirect);
-	log_end_section();
 }
 
 void unmap_notify(XUnmapEvent ev) {
@@ -410,7 +404,7 @@ void shortcut_move_client(CLIENT *client, int x_root, int y_root, unsigned int d
 
 void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
 	XEvent event;
-	int x, y, w, h;
+	int x, y, w, h, nw, nh;
 	
 	if(!client->floating) return;
 	
@@ -424,7 +418,24 @@ void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int
 		XAllowEvents(display, SyncPointer, CurrentTime);
 		XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
 		if(event.type == MotionNotify) {
-			resize_client(client, w + event.xmotion.x_root - x, h + event.xmotion.y_root - y);
+			nw = w + event.xmotion.x_root - x;
+			nh = h + event.xmotion.y_root - y;
+			
+			if(nw < client->min_width) nw = client->min_width;
+			if(nh < client->min_height) nh = client->min_height;
+			if(client->max_width > 0 && nw > client->max_width) nw = client->max_width;
+			if(client->max_height > 0 && nh > client->max_height) nh = client->max_height;
+			
+			nw -= client->base_width;
+			nh -= client->base_height;
+			
+			nw -= nw % client->inc_width;
+			nh -= nh % client->inc_height;
+			
+			nw += client->base_width;
+			nh += client->base_height;
+			
+			resize_client(client, nw, nh);
 		}
 		else if(event.type == ButtonRelease && (event.xbutton.state & state) && (event.xbutton.button == detail)) {
 			break;
@@ -480,6 +491,20 @@ void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned i
 		unframe_client(client);
 	}
 	arrange_all_clients();
+}
+
+void shortcut_spawn_dmenu(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
+	char* cmd[] = {"dmenu_run", NULL};
+	spawn(cmd);
+}
+
+void spawn(char** cmd) {
+	if(fork() == 0) {
+		if(display) close(ConnectionNumber(display));
+		setsid();
+		execvp(cmd[0], cmd);
+		exit(0);
+	}
 }
 
 void key_released(XKeyEvent ev) {
