@@ -175,9 +175,13 @@ void arrange_clients(SCREEN *screen) {
 	
 	if(c == 0) return;
 	else if(c == 1) {
-		move_client(clients, screen->x, screen->y);
-		resize_client(clients, screen->width, screen->height);
-		return;
+		for(tmp = clients; tmp; tmp = tmp->next) {
+			if(!tmp->override_redirect && !tmp->floating && get_screen_client(tmp) == screen) {
+				move_client(tmp, screen->x, screen->y);
+				resize_client(tmp, screen->width, screen->height);
+				return;
+			}
+		}
 	}
 	
 	odd = c % 2 == 1;
