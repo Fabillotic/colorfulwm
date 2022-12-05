@@ -5,9 +5,11 @@
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #include "logger.h"
-#include "colorful.h"
 #include "clients.h"
 #include "xinerama.h"
+#include "shortcuts.h"
+#include "colorful.h"
+#include "colorful_func.h"
 
 #define MAX_ERR_LEN 200
 #define return_endlog {log_end_section(); return;}
@@ -15,30 +17,8 @@
 Display *display;
 Window root;
 int (*xlib_err)(Display *, XErrorEvent *);
-
-enum focus_types{FocusClick, FocusEnter};
 int focus_type = FocusClick;
 
-
-int main();
-void run();
-void init_client(CLIENT *client);
-void scan_clients();
-void arrange_all_clients();
-void arrange_clients(SCREEN *screen);
-void map_request(XMapRequestEvent ev);
-void configure_request(XConfigureRequestEvent ev);
-void configure_notify(XConfigureEvent ev);
-void unmap_notify(XUnmapEvent ev);
-void destroy_notify(XDestroyWindowEvent ev);
-void button_pressed(XButtonEvent ev);
-void button_released(XButtonEvent ev);
-void key_pressed(XKeyEvent ev);
-void key_released(XKeyEvent ev);
-void enter_window(XCrossingEvent ev);
-int catch_error(Display *d, XErrorEvent *e);
-void check_other_wm();
-int other_wm_error(Display *d, XErrorEvent *e);
 
 int main() {
 	printf("Welcome to colorfulwm!\n");
@@ -81,6 +61,8 @@ int main() {
 	check_other_wm();
 	XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
 	
+	init_shortcuts();
+	
 	log_print(INFO, "Scanning for clients\n");
 	clients = NULL;
 	scan_clients();
@@ -116,6 +98,7 @@ void run() {
 
 void init_client(CLIENT *client) {
 	SCREEN *screen;
+	SHORTCUT *sc;
 	
 	screen = get_screen_client(client);
 	arrange_clients(screen);
@@ -123,9 +106,18 @@ void init_client(CLIENT *client) {
 	XSelectInput(display, client->window, ButtonPressMask | ButtonReleaseMask | EnterWindowMask);
 	if(client->sub != None) XSelectInput(display, client->sub, StructureNotifyMask);
 	XGrabButton(display, AnyButton, AnyModifier, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
-	XGrabButton(display, Button1, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
-	XGrabButton(display, Button3, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
-	XGrabKey(display, XKeysymToKeycode(display, XK_f), Mod1Mask, client->window, False, None, None);
+	//XGrabButton(display, Button1, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
+	//XGrabButton(display, Button3, Mod1Mask, client->window, False, ButtonPressMask | ButtonReleaseMask, GrabModeSync, GrabModeSync, None, None);
+	//XGrabKey(display, XKeysymToKeycode(display, XK_f), Mod1Mask, client->window, False, None, None);
+	
+	for(sc = shortcuts; sc; sc = sc->next) {
+		if(sc->is_button) {
+			XGrabButton(display, sc->detail, sc->state, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+		}
+		else {
+			XGrabKey(display, sc->detail, sc->state, client->window, False, None, None);
+		}
+	}
 }
 
 void scan_clients() {
@@ -343,8 +335,8 @@ void destroy_notify(XDestroyWindowEvent ev) {
 
 void button_pressed(XButtonEvent ev) {
 	CLIENT *client;
-	XEvent event;
-	int x, y, w, h;
+	SHORTCUT *sc;
+	bool is_shortcut;
 	
 	client = get_client_by_window(ev.window);
 	if(!client) {
@@ -354,47 +346,65 @@ void button_pressed(XButtonEvent ev) {
 	
 	focus_client(client, true);
 	
-	if(client->floating && (ev.state & Mod1Mask) && ev.button == Button1) {
-		XAllowEvents(display, SyncPointer, CurrentTime);
-		
-		x = client->x - ev.x_root;
-		y = client->y - ev.y_root;
-		
-		XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_fleur), CurrentTime);
-		while(true) {
+	is_shortcut = false;
+	for(sc = shortcuts; sc; sc = sc->next) {
+		if(sc->is_button && ev.state == sc->state && ev.button == sc->detail) {
+			is_shortcut = true;
+			sc->callback(client, ev.x_root, ev.y_root);
 			XAllowEvents(display, SyncPointer, CurrentTime);
-			XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
-			if(event.type == MotionNotify) {
-				move_client(client, x + event.xmotion.x_root, y + event.xmotion.y_root);
-			}
-			else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button1)) {
-				break;
-			}
+			break;
 		}
-		XUngrabPointer(display, CurrentTime);
 	}
-	else if(client->floating && (ev.state & Mod1Mask) && ev.button == Button3) {
+	
+	if(!is_shortcut) XAllowEvents(display, ReplayPointer, CurrentTime);
+}
+
+void shortcut_move_client(CLIENT *client, int x_root, int y_root) {
+	XEvent event;
+	int x, y;
+	
+	if(!client->floating) return;
+	
+	x = client->x - x_root;
+	y = client->y - y_root;
+	
+	XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_fleur), CurrentTime);
+	while(true) {
 		XAllowEvents(display, SyncPointer, CurrentTime);
-		
-		x = ev.x_root;
-		y = ev.y_root;
-		w = client->width;
-		h = client->height;
-		
-		XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_sizing), CurrentTime);
-		while(true) {
-			XAllowEvents(display, SyncPointer, CurrentTime);
-			XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
-			if(event.type == MotionNotify) {
-				resize_client(client, w + event.xmotion.x_root - x, h + event.xmotion.y_root - y);
-			}
-			else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button3)) {
-				break;
-			}
+		XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
+		if(event.type == MotionNotify) {
+			move_client(client, x + event.xmotion.x_root, y + event.xmotion.y_root);
 		}
-		XUngrabPointer(display, CurrentTime);
+		else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button1)) {
+			break;
+		}
 	}
-	else XAllowEvents(display, ReplayPointer, CurrentTime);
+	XUngrabPointer(display, CurrentTime);
+}
+
+void shortcut_resize_client(CLIENT *client, int x_root, int y_root) {
+	XEvent event;
+	int x, y, w, h;
+	
+	if(!client->floating) return;
+	
+	x = x_root;
+	y = y_root;
+	w = client->width;
+	h = client->height;
+	
+	XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_sizing), CurrentTime);
+	while(true) {
+		XAllowEvents(display, SyncPointer, CurrentTime);
+		XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
+		if(event.type == MotionNotify) {
+			resize_client(client, w + event.xmotion.x_root - x, h + event.xmotion.y_root - y);
+		}
+		else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button3)) {
+			break;
+		}
+	}
+	XUngrabPointer(display, CurrentTime);
 }
 
 void button_released(XButtonEvent ev) {
@@ -411,28 +421,39 @@ void button_released(XButtonEvent ev) {
 
 void key_pressed(XKeyEvent ev) {
 	CLIENT *client;
+	SHORTCUT *sc;
+	bool is_shortcut;
 	
 	client = get_client_by_window(ev.window);
 	if(!client) {
-		XAllowEvents(display, ReplayKeyboard, CurrentTime);
+		XAllowEvents(display, ReplayPointer, CurrentTime);
+		return;
 	}
 	
-	if((ev.state & Mod1Mask) && ev.keycode == XKeysymToKeycode(display, XK_f)) {
-		XAllowEvents(display, SyncKeyboard, CurrentTime);
-		client->floating = !client->floating;
-		XRaiseWindow(display, client->window);
-		
-		if(client->floating) {
-			frame_client(client);
+	is_shortcut = false;
+	for(sc = shortcuts; sc; sc = sc->next) {
+		if(!sc->is_button && ev.state == sc->state && ev.keycode == sc->detail) {
+			is_shortcut = true;
+			sc->callback(client, ev.x_root, ev.y_root);
+			XAllowEvents(display, SyncKeyboard, CurrentTime);
+			break;
 		}
-		else {
-			unframe_client(client);
-		}
-		arrange_all_clients();
+	}
+	
+	if(!is_shortcut) XAllowEvents(display, ReplayKeyboard, CurrentTime);
+}
+
+void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root) {
+	client->floating = !client->floating;
+	XRaiseWindow(display, client->window);
+	
+	if(client->floating) {
+		frame_client(client);
 	}
 	else {
-		XAllowEvents(display, ReplayKeyboard, CurrentTime);
+		unframe_client(client);
 	}
+	arrange_all_clients();
 }
 
 void key_released(XKeyEvent ev) {

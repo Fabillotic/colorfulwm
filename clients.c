@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <X11/Xlib.h>
 #include "logger.h"
-#include "colorful.h"
 #include "clients.h"
+#include "colorful.h"
 
 /* Implemented through colorful.c, necessary for mapping the frame clients */
 void map_request(XMapRequestEvent ev);
