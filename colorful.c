@@ -9,6 +9,7 @@
 #include "clients.h"
 #include "xinerama.h"
 #include "shortcuts.h"
+#include "colorful_shortcuts.h"
 
 #define MAX_ERR_LEN 200
 #define return_endlog {log_end_section(); return;}
@@ -30,11 +31,8 @@ void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
 void destroy_notify(XDestroyWindowEvent ev);
 void button_pressed(XButtonEvent ev);
-void shortcut_move_client(CLIENT *client, int x_root, int y_root);
-void shortcut_resize_client(CLIENT *client, int x_root, int y_root);
 void button_released(XButtonEvent ev);
 void key_pressed(XKeyEvent ev);
-void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root);
 void key_released(XKeyEvent ev);
 void enter_window(XCrossingEvent ev);
 int catch_error(Display *d, XErrorEvent *e);
@@ -372,7 +370,7 @@ void button_pressed(XButtonEvent ev) {
 	for(sc = shortcuts; sc; sc = sc->next) {
 		if(sc->is_button && ev.state == sc->state && ev.button == sc->detail) {
 			is_shortcut = true;
-			sc->callback(client, ev.x_root, ev.y_root);
+			sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
 			XAllowEvents(display, SyncPointer, CurrentTime);
 			break;
 		}
@@ -381,7 +379,7 @@ void button_pressed(XButtonEvent ev) {
 	if(!is_shortcut) XAllowEvents(display, ReplayPointer, CurrentTime);
 }
 
-void shortcut_move_client(CLIENT *client, int x_root, int y_root) {
+void shortcut_move_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
 	XEvent event;
 	int x, y;
 	
@@ -397,14 +395,14 @@ void shortcut_move_client(CLIENT *client, int x_root, int y_root) {
 		if(event.type == MotionNotify) {
 			move_client(client, x + event.xmotion.x_root, y + event.xmotion.y_root);
 		}
-		else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button1)) {
+		else if(event.type == ButtonRelease && (event.xbutton.state & state) && (event.xbutton.button == detail)) {
 			break;
 		}
 	}
 	XUngrabPointer(display, CurrentTime);
 }
 
-void shortcut_resize_client(CLIENT *client, int x_root, int y_root) {
+void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
 	XEvent event;
 	int x, y, w, h;
 	
@@ -422,7 +420,7 @@ void shortcut_resize_client(CLIENT *client, int x_root, int y_root) {
 		if(event.type == MotionNotify) {
 			resize_client(client, w + event.xmotion.x_root - x, h + event.xmotion.y_root - y);
 		}
-		else if(event.type == ButtonRelease && (event.xbutton.state & Mod1Mask) && (event.xbutton.button == Button3)) {
+		else if(event.type == ButtonRelease && (event.xbutton.state & state) && (event.xbutton.button == detail)) {
 			break;
 		}
 	}
@@ -456,7 +454,7 @@ void key_pressed(XKeyEvent ev) {
 	for(sc = shortcuts; sc; sc = sc->next) {
 		if(!sc->is_button && ev.state == sc->state && ev.keycode == sc->detail) {
 			is_shortcut = true;
-			sc->callback(client, ev.x_root, ev.y_root);
+			sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
 			XAllowEvents(display, SyncKeyboard, CurrentTime);
 			break;
 		}
@@ -465,7 +463,7 @@ void key_pressed(XKeyEvent ev) {
 	if(!is_shortcut) XAllowEvents(display, ReplayKeyboard, CurrentTime);
 }
 
-void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root) {
+void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
 	client->floating = !client->floating;
 	XRaiseWindow(display, client->window);
 	
