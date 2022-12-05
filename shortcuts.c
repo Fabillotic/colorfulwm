@@ -4,9 +4,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include "clients.h"
-#include "xinerama.h"
 #include "colorful.h"
-#include "colorful_func.h"
+#include "colorful_shortcuts.h"
 #include "shortcuts.h"
 
 SHORTCUT *shortcuts;

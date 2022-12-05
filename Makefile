@@ -6,16 +6,16 @@ all: ${BIN}
 X11INC = /usr/X11R6/include
 X11LIB = /usr/X11R6/lib
 
-colorful.o: colorful.c colorful.h colorful_func.h shortcuts.h xinerama.h clients.h logger.h
+colorful.o: colorful.c colorful.h logger.h clients.h xinerama.h shortcuts.h
 	${CC} -c -o $@ $< -I${X11INC}
 
-clients.o: clients.c colorful.h clients.h logger.h
+clients.o: clients.c logger.h clients.h colorful.h
 	${CC} -c -o $@ $< -I${X11INC}
 
-xinerama.o: xinerama.c colorful.h logger.h clients.h
+xinerama.o: xinerama.c logger.h colorful.h clients.h xinerama.h
 	${CC} -c -o $@ $< -I${X11INC}
 
-shortcuts.o: shortcuts.c colorful_func.h
+shortcuts.o: shortcuts.c clients.h colorful.h colorful_shortcuts.h shortcuts.h
 	${CC} -c -o $@ $< -I${X11INC}
 
 logger.o: logger.c logger.h
