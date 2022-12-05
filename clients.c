@@ -219,12 +219,12 @@ void focus_client(CLIENT *client, bool raise_window) {
 	active = client;
 	
 	if(!client) {
-		XSetInputFocus(display, None, RevertToNone, CurrentTime);
+		XSetInputFocus(display, root, RevertToPointerRoot, CurrentTime);
 		return;
 	}
 	
-	if(client->sub) XSetInputFocus(display, client->sub, RevertToNone, CurrentTime);
-	else XSetInputFocus(display, client->window, RevertToNone, CurrentTime);
+	if(client->sub) XSetInputFocus(display, client->sub, RevertToPointerRoot, CurrentTime);
+	else XSetInputFocus(display, client->window, RevertToPointerRoot, CurrentTime);
 	
 	if(raise_window) XRaiseWindow(display, client->window);
 }

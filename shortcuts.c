@@ -13,15 +13,16 @@ SHORTCUT *shortcuts;
 void init_shortcuts() {
 	create_button_shortcut(Button1, Mod1Mask, shortcut_move_client);
 	create_button_shortcut(Button3, Mod1Mask, shortcut_resize_client);
-	create_keyboard_shortcut(XKeysymToKeycode(display, XK_f), Mod1Mask, shortcut_toggle_floating);
-	create_keyboard_shortcut(XKeysymToKeycode(display, XK_d), Mod1Mask, shortcut_spawn_dmenu);
+	create_keyboard_shortcut(false, XKeysymToKeycode(display, XK_f), Mod1Mask, shortcut_toggle_floating);
+	create_keyboard_shortcut(true, XKeysymToKeycode(display, XK_d), Mod1Mask, shortcut_spawn_dmenu);
 }
 
-void create_shortcut(bool is_button, unsigned int detail, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
+void create_shortcut(bool global, bool is_button, unsigned int detail, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
 	SHORTCUT *sc, *tmp;
 	
 	sc = malloc(sizeof(SHORTCUT));
 	sc->next = NULL;
+	sc->global = global;
 	sc->is_button = is_button;
 	sc->detail = detail;
 	sc->state = state;
@@ -33,9 +34,9 @@ void create_shortcut(bool is_button, unsigned int detail, unsigned int state, vo
 }
 
 void create_button_shortcut(unsigned int button, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
-	create_shortcut(true, button, state, callback);
+	create_shortcut(false, true, button, state, callback);
 }
 
-void create_keyboard_shortcut(unsigned int key, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
-	create_shortcut(false, key, state, callback);
+void create_keyboard_shortcut(bool global, unsigned int key, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
+	create_shortcut(global, false, key, state, callback);
 }

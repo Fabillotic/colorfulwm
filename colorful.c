@@ -23,6 +23,7 @@ int focus_type = FocusClick;
 int main();
 void run();
 void init_client(CLIENT *client);
+void register_global_shortcuts();
 void scan_clients();
 void arrange_all_clients();
 void arrange_clients(SCREEN *screen);
@@ -84,6 +85,7 @@ int main() {
 	XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
 	
 	init_shortcuts();
+	register_global_shortcuts();
 	
 	log_print(INFO, "Scanning for clients\n");
 	clients = NULL;
@@ -133,8 +135,18 @@ void init_client(CLIENT *client) {
 		if(sc->is_button) {
 			XGrabButton(display, sc->detail, sc->state, client->window, False, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
 		}
-		else {
-			XGrabKey(display, sc->detail, sc->state, client->window, False, None, None);
+		else if(!sc->global) {
+			XGrabKey(display, sc->detail, sc->state, client->window, False, GrabModeSync, GrabModeSync);
+		}
+	}
+}
+
+void register_global_shortcuts() {
+	SHORTCUT *sc;
+	
+	for(sc = shortcuts; sc; sc = sc->next) {
+		if(!sc->is_button && sc->global) {
+			XGrabKey(display, sc->detail, sc->state, root, True, GrabModeAsync, GrabModeAsync);
 		}
 	}
 }
@@ -462,7 +474,7 @@ void key_pressed(XKeyEvent ev) {
 	bool is_shortcut;
 	
 	client = get_client_by_window(ev.window);
-	if(!client) {
+	if(!client && ev.window != root) {
 		XAllowEvents(display, ReplayPointer, CurrentTime);
 		return;
 	}
@@ -470,10 +482,17 @@ void key_pressed(XKeyEvent ev) {
 	is_shortcut = false;
 	for(sc = shortcuts; sc; sc = sc->next) {
 		if(!sc->is_button && ev.state == sc->state && ev.keycode == sc->detail) {
-			is_shortcut = true;
-			sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
-			XAllowEvents(display, SyncKeyboard, CurrentTime);
-			break;
+			if(client && !sc->global) {
+				is_shortcut = true;
+				sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
+				XAllowEvents(display, SyncKeyboard, CurrentTime);
+				break;
+			}
+			else if(!client && sc->global) {
+				is_shortcut = true;
+				sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
+				break;
+			}
 		}
 	}
 	
