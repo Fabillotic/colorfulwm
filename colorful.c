@@ -74,7 +74,6 @@ int main() {
 	/* Find default Xlib error handler */
 	log_print(INFO, "Finding default error handler\n");
 	xlib_err = XSetErrorHandler(catch_error);
-	XSetErrorHandler(xlib_err);
 	
 	/* Find all the connected screens */
 	log_print(INFO, "Xinerama active: %s\n", (check_xinerama_active() ? "true" : "false"));
@@ -83,6 +82,8 @@ int main() {
 	/* Register SubstructureRedirect on root */
 	check_other_wm();
 	XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
+	
+	XSetErrorHandler(catch_error);
 	
 	init_shortcuts();
 	register_global_shortcuts();
@@ -250,7 +251,7 @@ void map_request(XMapRequestEvent ev) {
 		log_print(INFO, "New client (MapRequest): %d\n", client->window);
 		
 		/* Figure out whether the window transitioned from Withdrawn to Normal or to Iconic */
-		hints = XGetWMHints(display, client->window);
+		hints = XGetWMHints(display, client->window); //For some reason this raises a BadAccess when using st?
 		if(hints) {
 			client->iconic = hints->initial_state == IconicState;
 			XFree(hints);
@@ -555,13 +556,11 @@ int catch_error(Display *d, XErrorEvent *e) {
 void check_other_wm() {
 	int (*old_err)(Display *, XErrorEvent *);
 	XSetErrorHandler(other_wm_error);
-	XSync(display, False);
 
 	XSelectInput(display, root, SubstructureRedirectMask);
 	XSync(display, False);
 
 	XSetErrorHandler(old_err);
-	XSync(display, False);
 }
 
 int other_wm_error(Display *d, XErrorEvent *e) {
