@@ -186,7 +186,7 @@ void frame_client(CLIENT *client) {
 	
 	nwindow = XCreateSimpleWindow(display, root, x, y, w + 20, h + 20, client->border_width, 0, 0);
 	
-	XReparentWindow(display, client->window, nwindow, 10, 10);
+	XReparentWindow(display, window, nwindow, 10, 10);
 	XSync(display, False);
 	
 	map_event = (XMapRequestEvent) {.type = MapRequest, .serial = 0, .send_event = False, .display = display, .parent = root, .window = nwindow};
@@ -200,6 +200,9 @@ void frame_client(CLIENT *client) {
 	resize_client(nclient, w, h);
 	
 	update_client(nclient);
+	
+	/* Get notification on subwindow destruction */
+	XSelectInput(display, window, StructureNotifyMask);
 }
 
 void unframe_client(CLIENT *client) {
