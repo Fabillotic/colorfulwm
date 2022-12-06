@@ -75,5 +75,5 @@ SCREEN *get_screen_xy(int x, int y) {
 
 SCREEN *get_screen_client(CLIENT *client) {
 	if(!client) return NULL;
-	return get_screen_xy(client->x, client->y);
+	return get_screen_xy(client->x + client->width / 2, client->y + client->height / 2);
 }
