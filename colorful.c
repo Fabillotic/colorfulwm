@@ -384,7 +384,7 @@ void button_pressed(XButtonEvent ev) {
 	for(sc = shortcuts; sc; sc = sc->next) {
 		if(sc->is_button && ev.state == sc->state && ev.button == sc->detail) {
 			is_shortcut = true;
-			sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
+			sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state, true);
 			XAllowEvents(display, SyncPointer, CurrentTime);
 			break;
 		}
@@ -421,13 +421,13 @@ void key_pressed(XKeyEvent ev) {
 		if(!sc->is_button && ev.state == sc->state && ev.keycode == sc->detail) {
 			if(client && !sc->global) {
 				is_shortcut = true;
-				sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
+				sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state, false);
 				XAllowEvents(display, SyncKeyboard, CurrentTime);
 				break;
 			}
 			else if(!client && sc->global) {
 				is_shortcut = true;
-				sc->callback(client, ev.x_root, ev.y_root, sc->detail, sc->state);
+				sc->callback(NULL, ev.x_root, ev.y_root, sc->detail, sc->state, false);
 				break;
 			}
 		}

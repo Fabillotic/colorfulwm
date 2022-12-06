@@ -15,7 +15,7 @@ clients.o: clients.c logger.h clients.h colorful.h
 xinerama.o: xinerama.c logger.h colorful.h clients.h xinerama.h
 	${CC} -c -o $@ $< -I${X11INC}
 
-shortcuts.o: shortcuts.c clients.h colorful.h shortcuts.h
+shortcuts.o: shortcuts.c clients.h colorful.h shortcuts.h logger.h
 	${CC} -c -o $@ $< -I${X11INC}
 
 logger.o: logger.c logger.h

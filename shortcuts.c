@@ -4,6 +4,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
+#include "logger.h"
 #include "clients.h"
 #include "colorful.h"
 #include "shortcuts.h"
@@ -18,10 +19,11 @@ void init_shortcuts() {
 	create_button_shortcut(Button1, Mod1Mask, shortcut_move_client);
 	create_button_shortcut(Button3, Mod1Mask, shortcut_resize_client);
 	create_keyboard_shortcut(false, XKeysymToKeycode(display, XK_f), Mod1Mask, shortcut_toggle_floating);
+	create_keyboard_shortcut(false, XKeysymToKeycode(display, XK_m), Mod1Mask, shortcut_move_client); /* Should not work! Just left here for testing */
 	create_keyboard_shortcut(true, XKeysymToKeycode(display, XK_d), Mod1Mask, shortcut_spawn_dmenu);
 }
 
-void create_shortcut(bool global, bool is_button, unsigned int detail, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
+void create_shortcut(bool global, bool is_button, unsigned int detail, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int,bool)) {
 	SHORTCUT *sc, *tmp;
 	
 	sc = malloc(sizeof(SHORTCUT));
@@ -37,18 +39,26 @@ void create_shortcut(bool global, bool is_button, unsigned int detail, unsigned 
 	else shortcuts = sc;
 }
 
-void create_button_shortcut(unsigned int button, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
+void create_button_shortcut(unsigned int button, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int,bool)) {
 	create_shortcut(false, true, button, state, callback);
 }
 
-void create_keyboard_shortcut(bool global, unsigned int key, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int)) {
+void create_keyboard_shortcut(bool global, unsigned int key, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int,bool)) {
 	create_shortcut(global, false, key, state, callback);
 }
 
-void shortcut_move_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
+void shortcut_move_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state, bool is_button) {
 	XEvent event;
 	int x, y;
 	
+	if(!client) {
+		log_print(ERROR, "shortcut_move_client has to be registered non-globally!\n");
+		return;
+	}
+	if(!is_button) {
+		log_print(ERROR, "shortcut_move_client only supports button action!\n");
+		return;
+	}
 	if(!client->floating) return;
 	
 	x = client->x - x_root;
@@ -68,10 +78,18 @@ void shortcut_move_client(CLIENT *client, int x_root, int y_root, unsigned int d
 	XUngrabPointer(display, CurrentTime);
 }
 
-void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
+void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state, bool is_button) {
 	XEvent event;
 	int x, y, w, h, nw, nh;
 	
+	if(!client) {
+		log_print(ERROR, "shortcut_resize_client has to be registered non-globally!\n");
+		return;
+	}
+	if(!is_button) {
+		log_print(ERROR, "shortcut_resize_client only supports button action!\n");
+		return;
+	}
 	if(!client->floating) return;
 	
 	x = x_root;
@@ -110,7 +128,12 @@ void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int
 	XUngrabPointer(display, CurrentTime);
 }
 
-void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
+void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state, bool is_button) {
+	if(!client) {
+		log_print(ERROR, "shortcut_toggle_floating has to be registered non-globally!\n");
+		return;
+	}
+	
 	client->floating = !client->floating;
 	XRaiseWindow(display, client->window);
 	
@@ -123,7 +146,7 @@ void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned i
 	arrange_all_clients();
 }
 
-void shortcut_spawn_dmenu(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
+void shortcut_spawn_dmenu(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state, bool is_button) {
 	char* cmd[] = {"dmenu_run", NULL};
 	spawn(cmd);
 }
