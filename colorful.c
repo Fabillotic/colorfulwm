@@ -10,7 +10,6 @@
 #include "clients.h"
 #include "xinerama.h"
 #include "shortcuts.h"
-#include "colorful_shortcuts.h"
 
 #define MAX_ERR_LEN 200
 #define return_endlog {log_end_section(); return;}
@@ -392,71 +391,6 @@ void button_pressed(XButtonEvent ev) {
 	if(!is_shortcut) XAllowEvents(display, ReplayPointer, CurrentTime);
 }
 
-void shortcut_move_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
-	XEvent event;
-	int x, y;
-	
-	if(!client->floating) return;
-	
-	x = client->x - x_root;
-	y = client->y - y_root;
-	
-	XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_fleur), CurrentTime);
-	while(true) {
-		XAllowEvents(display, SyncPointer, CurrentTime);
-		XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
-		if(event.type == MotionNotify) {
-			move_client(client, x + event.xmotion.x_root, y + event.xmotion.y_root);
-		}
-		else if(event.type == ButtonRelease && (event.xbutton.state & state) && (event.xbutton.button == detail)) {
-			break;
-		}
-	}
-	XUngrabPointer(display, CurrentTime);
-}
-
-void shortcut_resize_client(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
-	XEvent event;
-	int x, y, w, h, nw, nh;
-	
-	if(!client->floating) return;
-	
-	x = x_root;
-	y = y_root;
-	w = client->width;
-	h = client->height;
-	
-	XGrabPointer(display, client->window, False, ButtonReleaseMask | PointerMotionMask, GrabModeSync, GrabModeSync, None, XCreateFontCursor(display, XC_sizing), CurrentTime);
-	while(true) {
-		XAllowEvents(display, SyncPointer, CurrentTime);
-		XMaskEvent(display, ButtonReleaseMask | PointerMotionMask, &event);
-		if(event.type == MotionNotify) {
-			nw = w + event.xmotion.x_root - x;
-			nh = h + event.xmotion.y_root - y;
-			
-			if(nw < client->min_width) nw = client->min_width;
-			if(nh < client->min_height) nh = client->min_height;
-			if(client->max_width > 0 && nw > client->max_width) nw = client->max_width;
-			if(client->max_height > 0 && nh > client->max_height) nh = client->max_height;
-			
-			nw -= client->base_width;
-			nh -= client->base_height;
-			
-			nw -= nw % client->inc_width;
-			nh -= nh % client->inc_height;
-			
-			nw += client->base_width;
-			nh += client->base_height;
-			
-			resize_client(client, nw, nh);
-		}
-		else if(event.type == ButtonRelease && (event.xbutton.state & state) && (event.xbutton.button == detail)) {
-			break;
-		}
-	}
-	XUngrabPointer(display, CurrentTime);
-}
-
 void button_released(XButtonEvent ev) {
 	CLIENT *client;
 	
@@ -498,24 +432,6 @@ void key_pressed(XKeyEvent ev) {
 	}
 	
 	if(!is_shortcut) XAllowEvents(display, ReplayKeyboard, CurrentTime);
-}
-
-void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
-	client->floating = !client->floating;
-	XRaiseWindow(display, client->window);
-	
-	if(client->floating) {
-		frame_client(client);
-	}
-	else {
-		unframe_client(client);
-	}
-	arrange_all_clients();
-}
-
-void shortcut_spawn_dmenu(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state) {
-	char* cmd[] = {"dmenu_run", NULL};
-	spawn(cmd);
 }
 
 void spawn(char** cmd) {
