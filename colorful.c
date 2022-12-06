@@ -287,6 +287,8 @@ void configure_request(XConfigureRequestEvent ev) {
 	
 	XConfigureWindow(display, client->window, ev.value_mask, &wc);
 	XSync(display, False);
+	
+	arrange_all_clients();
 	log_end_section();
 }
 
