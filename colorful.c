@@ -27,6 +27,7 @@ void scan_clients();
 void arrange_all_clients();
 void arrange_clients(SCREEN *screen);
 void map_request(XMapRequestEvent ev);
+void map_notify(XMapEvent ev);
 void configure_request(XConfigureRequestEvent ev);
 void configure_notify(XConfigureEvent ev);
 void unmap_notify(XUnmapEvent ev);
@@ -70,6 +71,7 @@ int main() {
 	
 	log_print(INFO, "Gettting root window\n");
 	root = XDefaultRootWindow(display);
+	log_print(DEBUG, "root window: %d\n", root);
 	
 	/* Find default Xlib error handler */
 	log_print(INFO, "Finding default error handler\n");
@@ -110,6 +112,7 @@ void run() {
 			if(e.type == MapRequest) map_request(e.xmaprequest);
 			else if(e.type == ConfigureRequest) configure_request(e.xconfigurerequest);
 			else if(e.type == UnmapNotify) unmap_notify(e.xunmap);
+			else if(e.type == MapNotify) map_notify(e.xmap);
 			else if(e.type == DestroyNotify) destroy_notify(e.xdestroywindow);
 			else if(e.type == ConfigureNotify) configure_notify(e.xconfigure);
 			else if(e.type == ButtonPress) button_pressed(e.xbutton);
@@ -266,6 +269,42 @@ void map_request(XMapRequestEvent ev) {
 	log_end_section();
 }
 
+void map_notify(XMapEvent ev) {
+	CLIENT *client;
+	XWMHints *hints;
+	
+	log_start_section("MapNotify");
+	log_print(DEBUG, "window: %d\n", ev.window);
+	
+	if(ev.override_redirect) {
+		log_print(DEBUG, "Ignored override redirect window!\n");
+		return_endlog;
+	}
+	
+	client = get_client_by_window(ev.window);
+	if(client) {
+		log_print(INFO, "MapNotify event emitted on existing client: %d\n", client->window);
+		client->iconic = false; /* Transition from Iconic to Normal requires mapping the window */
+	}
+	else {
+		client = create_client(ev.window);
+		init_client(client);
+		log_print(INFO, "New client (MapNotify): %d\n", client->window);
+		
+		/* Figure out whether the window transitioned from Withdrawn to Normal or to Iconic */
+		hints = XGetWMHints(display, client->window); //For some reason this raises a BadAccess when using st?
+		if(hints) {
+			client->iconic = hints->initial_state == IconicState;
+			XFree(hints);
+			if(client->iconic) log_print(INFO, "Client was started in an iconic state!\n");
+		}
+		else client->iconic = false; /* Assume its Normal otherwise */
+	}
+	
+	if(focus_type == FocusClick) focus_client(client, false);
+	log_end_section();
+}
+
 void configure_request(XConfigureRequestEvent ev) {
 	CLIENT *client;
 	XWindowChanges wc;
@@ -323,11 +362,13 @@ void unmap_notify(XUnmapEvent ev) {
 	SCREEN *screen;
 	
 	log_start_section("UnmapNotify");
+	log_print(DEBUG, "window: %d\n", ev.window);
+	
 	client = get_client_by_window(ev.window);
 	if(!client) {
 		for(sclient = clients; sclient; sclient = sclient->next) {
 			if(sclient->sub == ev.window) {
-				log_print(INFO, "Sub-Window was unmapped!\n");
+				log_print(INFO, "Sub-Window was unmapped! Parent: %d\n", sclient->window);
 				break;
 			}
 		}
@@ -357,6 +398,7 @@ void destroy_notify(XDestroyWindowEvent ev) {
 	SCREEN *screen;
 	
 	log_start_section("DestroyNotify");
+	log_print(DEBUG, "window: %d\n", ev.window);
 	client = get_client_by_window(ev.window);
 	if(!client) return_endlog;
 	

@@ -173,10 +173,10 @@ void frame_client(CLIENT *client) {
 	CLIENT *nclient;
 	Window window, nwindow;
 	XMapRequestEvent map_event;
-	XUnmapEvent unmap_event;
 	bool floating;
 	int x, y, w, h;
 	
+	log_start_section("FrameClient");
 	floating = client->floating;
 	x = client->x;
 	y = client->y;
@@ -203,19 +203,32 @@ void frame_client(CLIENT *client) {
 	
 	/* Get notification on subwindow destruction */
 	XSelectInput(display, window, StructureNotifyMask);
+	log_end_section();
 }
 
 void unframe_client(CLIENT *client) {
+	XMapRequestEvent map_event;
+	CLIENT *sclient;
+	Window sub;
+	
+	log_start_section("UnframeClient");
+	
 	log_print(DEBUG, "Unframing client!\n");
 	if(client->sub != None) {
-		XReparentWindow(display, client->sub, root, client->x, client->y);
-		XMapWindow(display, client->sub);
+		sub = client->sub;
+		
+		/* Ignore previously set notifications on subwindow destruction */
+		XSelectInput(display, sub, 0);
+		
+		XReparentWindow(display, sub, root, client->x, client->y);
+		XSync(display, False);
+		
 		XDestroyWindow(display, client->window);
 		XSync(display, False);
 		
-		client->window = client->sub;
-		client->sub = None;
+		delete_client(client);
 	}
+	log_end_section();
 }
 
 void focus_client(CLIENT *client, bool raise_window) {
