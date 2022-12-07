@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
@@ -21,6 +22,7 @@ void init_shortcuts() {
 	create_keyboard_shortcut(false, XKeysymToKeycode(display, XK_f), Mod1Mask, shortcut_toggle_floating);
 	create_keyboard_shortcut(false, XKeysymToKeycode(display, XK_m), Mod1Mask, shortcut_move_client); /* Should not work! Just left here for testing */
 	create_keyboard_shortcut(true, XKeysymToKeycode(display, XK_d), Mod1Mask, shortcut_spawn_dmenu);
+	create_keyboard_shortcut(true, XKeysymToKeycode(display, XK_q), ShiftMask | Mod1Mask, shortcut_shutdown);
 }
 
 void create_shortcut(bool global, bool is_button, unsigned int detail, unsigned int state, void (*callback)(CLIENT*,int,int,unsigned int,unsigned int,bool)) {
@@ -149,4 +151,9 @@ void shortcut_toggle_floating(CLIENT *client, int x_root, int y_root, unsigned i
 void shortcut_spawn_dmenu(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state, bool is_button) {
 	char* cmd[] = {"dmenu_run", NULL};
 	spawn(cmd);
+}
+
+void shortcut_shutdown(CLIENT *client, int x_root, int y_root, unsigned int detail, unsigned int state, bool is_button) {
+	close(ConnectionNumber(display));
+	exit(0);
 }

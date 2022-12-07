@@ -59,6 +59,7 @@ int main() {
 			" \\_____/ ", "|______| ", "|______| ", "|______| ", "| |  \\_\\ ", "|_|      ", "|______| ", "|______|");
 	
 	log_init(LOG_ALL, NULL, true);
+	log_init(LOG_ALL, "LOG", false);
 	
 	log_print(INFO, "Connecting to X11...\n");
 	display = XOpenDisplay(NULL);

@@ -27,6 +27,9 @@ ${BIN}: ${OBJ}
 run: ${BIN}
 	./${BIN}
 
+runx: ${BIN}
+	startx ./${BIN} -- :2
+
 clean:
 	rm -f ${BIN} ${OBJ}
 
