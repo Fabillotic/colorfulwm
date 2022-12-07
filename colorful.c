@@ -379,6 +379,9 @@ void unmap_notify(XUnmapEvent ev) {
 		
 		delete_client(sclient);
 		arrange_all_clients();
+		
+		if(clients && focus_type == FocusClick) focus_client(clients, false);
+		
 		return_endlog;
 	}
 	
